@@ -1,0 +1,47 @@
+# Game
+gamemode=0
+force-gamemode=true
+pvp=true
+difficulty=1
+hardcore=false
+
+# World
+level-name=world
+level-type=DEFAULT
+level-seed=
+max-world-size=29999984
+generator-settings=
+generate-structures=true
+max-build-height=256
+spawn-npcs=true
+spawn-monsters=true
+spawn-animals=true
+
+# Players
+allow-flight=false
+allow-nether=true
+player-idle-timeout=0
+
+# Ops
+op-permission-level=4
+enable-rcon=false
+enable-query=false
+enable-command-block=false
+
+# Connections
+prevent-proxy-connections=false
+network-compression-threshold=256
+snooper-enabled=true
+
+# Server
+server-ip=
+server-port=25565
+online-mode=true
+resource-pack=
+resource-pack-sha1=
+max-players=20
+max-tick-time=60000
+view-distance=10
+white-list=false
+motd=A Minecraft Server
+
