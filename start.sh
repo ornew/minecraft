@@ -2,24 +2,35 @@
 
 set -e
 
-echo $HOME
+TAG=${TAG:-"ornew/minecraft"}
+function log() {
+  case $1 in
+    [eE]*) local _level=E; local _color=31 ;;
+    [wW]*) local _level=W; local _color=33 ;;
+    *)     local _level=I; local _color= ;;
+  esac
+  echo -e "\e[${_color}m[$(date -u)] ${TAG} ${_level}: ${@:1}\e[m"
+}
+
 HOME=/home/minecraft
 SERVER_DIR=~/server
 SERVER_JAR=$SERVER_DIR/server.jar
 mkdir -p $SERVER_DIR
+
 cd $SERVER_DIR
+log I "Server directory is '$SERVER_DIR'."
 
 if [ ! -e "$SERVER_DIR/eula.txt" ]; then
   if [ "$EULA" != "" ]; then
     echo "# Generated via Docker on $(date)" > "$SERVER_DIR/eula.txt"
     echo "eula=$EULA" >> "$SERVER_DIR/eula.txt"
   else
-    echo ""
-    echo "Please accept the Minecraft EULA at"
-    echo "  https://account.mojang.com/documents/minecraft_eula"
-    echo "by adding the following immediately after 'docker run':"
-    echo "  -e EULA=TRUE"
-    echo ""
+    log E ""
+    log E "Please accept the Minecraft EULA at"
+    log E "  https://account.mojang.com/documents/minecraft_eula"
+    log E "by adding the following immediately after 'docker run':"
+    log E "  -e EULA=TRUE"
+    log E ""
     exit 1
   fi
 fi
@@ -27,60 +38,61 @@ fi
 VANILLA_VERSIONS_JSON=/tmp/vanilla-versions.json
 VANILLA_VERSIONS_JSON_URL=https://launchermeta.mojang.com/mc/game/version_manifest.json
 
-echo "Checking the vanilla versions information... "
+log I "Checking the vanilla versions information... "
 wget -q -O $VANILLA_VERSIONS_JSON $VANILLA_VERSIONS_JSON_URL
 if [ $? != 0 ]; then
-  echo "Failed to get the version information."
+  log E "Failed to get the version information."
   exit 1
 fi
 
 VANILLA_LATEST=$(jq -r '.latest.release' $VANILLA_VERSIONS_JSON)
-echo "The latest version of vanilla is '$VANILLA_LATEST'."
+log I "The latest version of vanilla is '$VANILLA_LATEST'."
 
 case "X$VERSION" in
   X[0-9.]*)
-    echo "The specified version of vanilla is '$VERSION'."
+    log I "The specified version of vanilla is '$VERSION'."
   ;;
   XLATEST|Xlatest)
     VERSION=$VANILLA_LATEST
-    echo "The specified version of vanilla is '$VERSION'."
+    log I "The specified version of vanilla is '$VERSION'."
   ;;
   X)
-    echo 'There is no $VERSION specification. Use the latest version.'
+    log I 'There is no $VERSION specification. Use the latest version.'
     VERSION=$VANILLA_LATEST
   ;;
 esac
 VANILLA_VERSION_INFO_URL=$(jq -r ".versions[] | select(.id == \"$VERSION\").url" $VANILLA_VERSIONS_JSON)
-if [ -z "$VANILLA_VERSION_INFO_URL" ]; then
-  echo "The specified version infomation of vanilla does not exist: \$VERSION=$VERSION"
+if [ "$VANILLA_VERSION_INFO_URL" = null ]; then
+  log E "The specified version infomation of vanilla does not exist: \$VERSION=$VERSION"
   exit 1
 fi
 
 function installVanilla {
-  echo "Installing the vanilla server for '$VERSION'."
+  log I "Installing the vanilla server for '$VERSION'."
   printf "Downloading '$VANILLA_VERSION_INFO_URL' ..."
-  local _info="/tmp/vanilla-$VANILLA_VERSION.json"
-  wget -q -O $_info $VANILLA_VERSION_INFO_URL
-  local _url=$(jq -r '.downloads.server.url' $_info)
-  local _sha1=$(jq -r '.downloads.server.sha1' $_info)
-  if [ -z $_url -o -z $_sha1 ]; then
-    echo "Failed to get version $VERSION information."
+  local _info_json="/tmp/vanilla-$VANILLA_VERSION.json"
+  wget -q -O $_info_json $VANILLA_VERSION_INFO_URL
+  local _info=$(jq -r '.downloads.server.url,.downloads.server.sha1' $_info_json)
+  local _url=$(echo "$_info" | awk 'NR==1')
+  local _sha1=$(echo "$_info" | awk 'NR==2')
+  if [ $_url = null -o $_sha1 = null ]; then
+    log E "Failed to get version $VERSION information."
     exit 1
   fi
-  echo "done"
+  log I "done"
 
   printf "Downloading '$_url' ..."
   wget -q -O $SERVER_JAR $_url
   local _check_sha1=$(sha1sum $SERVER_JAR | awk '{ print $1 }')
   if [ "$_check_sha1" != "$_sha1" ]; then
-    echo ""
-    echo "The SHA1 checksums do not match."
-    echo "Expected: $_sha1"
-    echo "Actual: $_check_sha1"
+    log E ""
+    log E "The SHA1 checksums do not match."
+    log E "Expect: $_sha1"
+    log E "Actual: $_check_sha1"
     exit 1
   fi
-  echo "done"
-  echo "Installation is completed."
+  log I "done"
+  log I "Installation is completed."
 }
 
 TYPE=${TYPE:-vanilla}
@@ -88,7 +100,7 @@ case "$TYPE" in
   f|FORGE|forge)
     TYPE=forge
     #installForge
-    echo "Sorry, we do not yet support Forge installation."
+    log E "Sorry, we do not yet support Forge installation."
     exit 1
   ;;
   v|VANILLA|vanilla)
@@ -96,23 +108,23 @@ case "$TYPE" in
     installVanilla
   ;;
   *)
-    echo "Invalid type: \$TYPE -> '$TYPE'"
-    echo "\$TYPE must be 'vanilla' or 'forge'."
+    log E "Invalid type: \$TYPE -> '$TYPE'"
+    log E "\$TYPE must be 'vanilla' or 'forge'."
     exit 1
   ;;
 esac
 
 if [ -n "$OPS" -a ! -e ops.txt.converted ]; then
-  echo "Setting ops"
-  echo $OPS | awk -v RS=, '{print}' >> ops.txt
+  log I "Setting ops"
+  log I $OPS | awk -v RS=, '{print}' >> ops.txt
 fi
 
 if [ -n "$WHITELIST" -a ! -e white-list.txt.converted ]; then
-  echo "Setting whitelist"
+  log I "Setting whitelist"
   echo $WHITELIST | awk -v RS=, '{print}' >> white-list.txt
 fi
 
-echo "Setting initial memory to ${INIT_MEMORY:-${MEMORY}} and max to ${MAX_MEMORY:-${MEMORY}}"
+log I "Setting initial memory to ${INIT_MEMORY:-${MEMORY}} and max to ${MAX_MEMORY:-${MEMORY}}"
 JVM_OPTS="-Xms${INIT_MEMORY:-${MEMORY}} -Xmx${MAX_MEMORY:-${MEMORY}} ${JVM_OPTS}"
 
 if [ -f "$SERVER_DIR/bootstrap.txt" ]; then
