@@ -170,7 +170,7 @@ if [ "$JVM_OPTS" = auto ]; then
   log I "Automatically configured JVM options ..."
   metric_alpine_docker
   MEMINFO_MB=$(expr $MEMINFO / 1024 / 1024)
-  memlimit_MB=$(expr $MEMLIMIT / 1024 / 1024)
+  MEMLIMIT_MB=$(expr $MEMLIMIT / 1024 / 1024)
   log I "MemTotal $MEMINFO_MB MB"
   log I "MemLimit $MEMLIMIT_MB MB"
   # 100TB RAM??? -> no limit
