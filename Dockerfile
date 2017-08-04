@@ -1,4 +1,4 @@
-FROM openjdk:8u131-jre-alpine
+FROM openjdk:jre-alpine
 LABEL maintainer "Arata Furukawa <info@ornew.net>"
 CMD /bin/bash
 
@@ -22,23 +22,19 @@ USER minecraft
 VOLUME [ "/home/minecraft" ]
 WORKDIR "/home/minecraft"
 
-ENTRYPOINT [ "/home/minecraft/start.sh" ]
+ENTRYPOINT [ "/bin/sh", "/home/minecraft/start.sh" ]
 
 ENV UID=1000 \
   GID=1000 \
   MOTD="A Minecraft Server Powered by Docker" \
-  JVM_XX_OPTS="-XX:+UseG1GC" \
-  MEMORY="1G" \
+  JVM_OPTS=auto \
   TYPE=VANILLA \
   VERSION= \
   FORGEVERSION=RECOMMENDED \
   LEVEL=world \
   PVP=true \
   DIFFICULTY=easy \
-  ENABLE_RCON=true \
   LEVEL_TYPE=DEFAULT \
   GENERATOR_SETTINGS= \
   WORLD= \
-  MODPACK= \
-  ONLINE_MODE=TRUE \
-  CONSOLE=true
+  ONLINE_MODE=TRUE
