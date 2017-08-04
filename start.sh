@@ -17,6 +17,7 @@ function log() {
 HOME=/home/minecraft
 SERVER_DIR=~/server
 SERVER_JAR=$SERVER_DIR/server.jar
+INSTALL_MARKER=$SERVER_DIR/.installed
 mkdir -p $SERVER_DIR
 
 cd $SERVER_DIR
@@ -70,6 +71,13 @@ if [ "$VANILLA_VERSION_INFO_URL" = null ]; then
 fi
 
 function installVanilla {
+  if [ -e "$INSTALL_MARKER" ]; then
+    _installed_version=$(cat "$INSTALL_MARKER")
+    if [ "$_installed_version" = "$VERSION" ]; then
+      log I "Version $VERSION is already installed."
+      return
+    fi
+  fi
   log I "Installing the vanilla server for '$VERSION'."
   log I "Downloading '$VANILLA_VERSION_INFO_URL' ..."
   local _info_json="/tmp/vanilla-$VANILLA_VERSION.json"
@@ -92,7 +100,7 @@ function installVanilla {
     log E "Actual: $_check_sha1"
     exit 1
   fi
-  echo "$VERSION" > '.install_successfully'
+  echo "$VERSION" > $INSTALL_MARKER
   log I "Installation is completed."
 }
 
