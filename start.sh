@@ -1,8 +1,6 @@
-#!/bin/bash
+#!/bin/sh
 
 set -e
-#sed -i "/^minecraft/s/:1000:1000:/:${UID}:${GID}:/g" /etc/passwd
-#sed -i "/^minecraft/s/:1000:/:${GID}:/g" /etc/group
 
 echo $HOME
 HOME=/home/minecraft
@@ -73,7 +71,7 @@ function installVanilla {
 
   printf "Downloading '$_url' ..."
   wget -q -O $SERVER_JAR $_url
-  local _check_sha1=($(sha1sum $SERVER_JAR))
+  local _check_sha1=$(sha1sum $SERVER_JAR | awk '{ print $1 }')
   if [ "$_check_sha1" != "$_sha1" ]; then
     echo ""
     echo "The SHA1 checksums do not match."
@@ -89,7 +87,9 @@ TYPE=${TYPE:-vanilla}
 case "$TYPE" in
   f|FORGE|forge)
     TYPE=forge
-    installForge
+    #installForge
+    echo "Sorry, we do not yet support Forge installation."
+    exit 1
   ;;
   v|VANILLA|vanilla)
     TYPE=vanilla

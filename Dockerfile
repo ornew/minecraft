@@ -4,7 +4,7 @@ CMD /bin/bash
 
 RUN set -vx \
   && apk add -U \
-    bash openssl jq \
+    openssl jq \
   && rm -rf /var/cache/apk/* \
   && addgroup -g 1000 minecraft \
   && adduser -Ss /bin/false -u 1000 -G minecraft -h /home/minecraft minecraft
