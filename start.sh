@@ -2,20 +2,20 @@
 
 set -e
 
-TAG=${TAG:-"ornew/minecraft"}
 function log() {
+  TAG=${TAG:-"ornew/minecraft"}
   case $1 in
-    [eE]*) local _level=E; local _color=31 ;;
-    [wW]*) local _level=W; local _color=33 ;;
-    *)     local _level=I; local _color= ;;
+    [eE]*) local LEVEL=E; local COLOR=31 ;;
+    [wW]*) local LEVEL=W; local COLOR=33 ;;
+    *)     local LEVEL=I; local COLOR= ;;
   esac
-  printf "\e[${_color}m"
-  echo -e "[$(date -u)] ${TAG} ${_level}: ${@:1}"
+  printf "\e[${COLOR}m"
+  echo -e "[$(date -u)] ${TAG} ${LEVEL}: ${@:1}"
   printf "\e[m"
 }
 
 HOME=/home/minecraft
-SERVER_DIR=~/server
+SERVER_DIR=$HOME/server
 SERVER_JAR=$SERVER_DIR/server.jar
 INSTALL_MARKER=$SERVER_DIR/.installed
 mkdir -p $SERVER_DIR
@@ -72,32 +72,32 @@ fi
 
 function installVanilla {
   if [ -e "$INSTALL_MARKER" ]; then
-    _installed_version=$(cat "$INSTALL_MARKER")
-    if [ "$_installed_version" = "$VERSION" ]; then
+    INSTALLED_VERSION=$(cat "$INSTALL_MARKER")
+    if [ "$INSTALLED_VERSION" = "$VERSION" ]; then
       log I "Version $VERSION is already installed."
       return
     fi
   fi
   log I "Installing the vanilla server for '$VERSION'."
   log I "Downloading '$VANILLA_VERSION_INFO_URL' ..."
-  local _info_json="/tmp/vanilla-$VANILLA_VERSION.json"
-  wget -q -O $_info_json $VANILLA_VERSION_INFO_URL
-  local _info=$(jq -r '.downloads.server.url,.downloads.server.sha1' $_info_json)
-  local _url=$(echo "$_info" | awk 'NR==1')
-  local _sha1=$(echo "$_info" | awk 'NR==2')
-  if [ $_url = null -o $_sha1 = null ]; then
+  local INFO_JSON="/tmp/vanilla-$VANILLA_VERSION.json"
+  wget -q -O $INFO_JSON $VANILLA_VERSION_INFO_URL
+  local INFO=$(jq -r '.downloads.server.url,.downloads.server.sha1' $INFO_JSON)
+  local URL=$(echo "$INFO" | awk 'NR==1')
+  local SHA1=$(echo "$INFO" | awk 'NR==2')
+  if [ $URL = null -o $SHA1 = null ]; then
     log E "Failed to get version $VERSION information."
     exit 1
   fi
 
-  log I "Downloading '$_url' ..."
-  wget -q -O $SERVER_JAR $_url
-  local _check_sha1=$(sha1sum $SERVER_JAR | awk '{ print $1 }')
-  if [ "$_check_sha1" != "$_sha1" ]; then
+  log I "Downloading '$URL' ..."
+  wget -q -O $SERVER_JAR $URL
+  local CHECK_SHA1=$(sha1sum $SERVER_JAR | awk '{ print $1 }')
+  if [ "$CHECK_SHA1" != "$SHA1" ]; then
     log E ""
     log E "The SHA1 checksums do not match."
-    log E "Expect: $_sha1"
-    log E "Actual: $_check_sha1"
+    log E "Expect: $SHA1"
+    log E "Actual: $CHECK_SHA1"
     exit 1
   fi
   echo "$VERSION" > $INSTALL_MARKER
@@ -133,7 +133,7 @@ if [ -n "$WHITELIST" -a ! -e white-list.txt.converted ]; then
   echo $WHITELIST | awk -v RS=, '{print}' >> white-list.txt
 fi
 
-_jvm_opts_for_optimized="
+JVM_OPTS_FOR_OPTIMIZED="
   -XX:+UnlockExperimentalVMOptions
   -XX:+UseCGroupMemoryLimitForHeap
   -XX:+DisableExplicitGC
@@ -159,39 +159,39 @@ _jvm_opts_for_optimized="
 "
 
 # For Alpine on Docker.
-function _metric_alpine_docker() {
-  _meminfo_KB=$(cat /proc/meminfo | grep MemTotal | awk '{print $2}')
-  _meminfo=$(expr $_meminfo_KB \* 1024)
-  _memlimit=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes)
+function metric_alpine_docker() {
+  MEMINFO_KB=$(cat /proc/meminfo | grep MemTotal | awk '{print $2}')
+  MEMINFO=$(expr $MEMINFO_KB \* 1024)
+  MEMLIMIT=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes)
 }
 
 JVM_OPTS=${JVM_OPTS:-auto}
 if [ "$JVM_OPTS" = auto ]; then
   log I "Automatically configured JVM options ..."
-  _metric_alpine_docker
-  _meminfo_MB=$(expr $_meminfo / 1024 / 1024)
-  _memlimit_MB=$(expr $_memlimit / 1024 / 1024)
-  log I "MemTotal $_meminfo_MB MB"
-  log I "MemLimit $_memlimit_MB MB"
+  metric_alpine_docker
+  MEMINFO_MB=$(expr $MEMINFO / 1024 / 1024)
+  memlimit_MB=$(expr $MEMLIMIT / 1024 / 1024)
+  log I "MemTotal $MEMINFO_MB MB"
+  log I "MemLimit $MEMLIMIT_MB MB"
   # 100TB RAM??? -> no limit
-  if [ $_memlimit_MB -ge 100000 ]; then
-    _max_memory_size=$_meminfo_MB
+  if [ $MEMLIMIT_MB -ge 100000 ]; then
+    MAX_MEMORY_SIZE=$MEMINFO_MB
   else
-    _max_memory_size=$_memlimit_MB
+    MAX_MEMORY_SIZE=$MEMLIMIT_MB
   fi
-  _jvm_recommend_memory_size="$(expr $_max_memory_size \* 9 / 10)M"
-  if [ $_max_memory_size -ge 3072 ]; then
-    _jvm_recommend_gc_type=G1GC
+  JVM_RECOMMEND_MEMORY_SIZE="$(expr $MAX_MEMORY_SIZE \* 9 / 10)M"
+  if [ $MAX_MEMORY_SIZE -ge 3072 ]; then
+    JVM_RECOMMEND_GC_TYPE=G1GC
   else
-    _jvm_recommend_gc_type=ConcMarkSweepGC
+    JVM_RECOMMEND_GC_TYPE=ConcMarkSweepGC
   fi
-  log I "Recommended initialization and maximum heap memory size: ${_jvm_recommend_memory_size}B"
-  log I "Recommended GC type: ${_jvm_recommend_gc_type}"
-  JVM_MEMORY=${JVM_MEMORY:-$_jvm_recommend_memory_size}
+  log I "Recommended initialization and maximum heap memory size: ${JVM_RECOMMEND_MEMORY_SIZE}B"
+  log I "Recommended GC type: ${JVM_RECOMMEND_GC_TYPE}"
+  JVM_MEMORY=${JVM_MEMORY:-$JVM_RECOMMEND_MEMORY_SIZE}
   JVM_INIT_MEMORY=${JVM_INIT_MEMORY:-$JVM_MEMORY}
   JVM_MAX_MEMORY=${JVM_MAX_MEMORY:-$JVM_MEMORY}
   case "X$JVM_GC" in
-    X               ) JVM_GC=$_jvm_recommend_gc_type ;;
+    X               ) JVM_GC=$JVM_RECOMMEND_GC_TYPE ;;
     XG1GC           ) JVM_GC=G1GC ;;
     XConcMarkSweepGC) JVM_GC=ConcMarkSweepGC ;;
     X*)
@@ -200,7 +200,7 @@ if [ "$JVM_OPTS" = auto ]; then
     ;;
   esac
   JVM_OPTS="
-    ${_jvm_opts_for_optimized}
+    ${JVM_OPTS_FOR_OPTIMIZED}
     -XX:+Use${JVM_GC}
     -Xms${JVM_INIT_MEMORY}
     -Xmx${JVM_MAX_MEMORY}"
