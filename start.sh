@@ -72,7 +72,7 @@ fi
 
 function installVanilla {
   if [ -e "$INSTALL_MARKER" ]; then
-    INSTALLED_VERSION=$(cat "$INSTALL_MARKER")
+    local INSTALLED_VERSION=$(cat "$INSTALL_MARKER")
     if [ "$INSTALLED_VERSION" = "$VERSION" ]; then
       log I "Version $VERSION is already installed."
       return
