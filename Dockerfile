@@ -1,6 +1,5 @@
 FROM openjdk:jre-alpine
 LABEL maintainer "Arata Furukawa <info@ornew.net>"
-CMD /bin/bash
 
 RUN set -vx \
   && apk add -U \
