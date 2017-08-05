@@ -112,7 +112,7 @@ function install_vanilla
 {
   resolve_vanilla_version
   if [ -e "$INSTALL_MARKER" ]; then
-    INSTALLED_VERSION=$(cat "$INSTALL_MARKER")
+    INSTALLED_VERSION=$(cat "$INSTALL_MARKER" | cut -d'=' -f2)
     if [ "$INSTALLED_VERSION" = "$VERSION" ]; then
       log I "Version $VERSION is already installed."
       return
@@ -140,8 +140,113 @@ function install_vanilla
     log E "Actual: $DL_SHA1"
     exit 1
   fi
-  echo "$VERSION" > $INSTALL_MARKER
+  echo "vanilla=$VERSION" > $INSTALL_MARKER
   log I "Installation is completed."
+}
+
+#===============================================================================
+# Installation Minecraft Forge Server.
+#
+# (depend)
+#   log, resolve_vanilla_version
+#
+# (Access)
+#   $INSTALL_MARKER
+#   $VERSION
+#
+# (Update)
+#   file "$SERVER_DIR/.installed"
+#===============================================================================
+function install_forge() {
+  resolve_vanilla_version
+
+  local installer=$SERVER_DIR/forge-installer.jar
+  local VERSIONS_JSON=/tmp/forge-version.json
+  local VERSIONS_JSON_URL=https://files.minecraftforge.net/maven/net/minecraftforge/forge/promotions_slim.json
+
+  log I "Checking the forge versions information... "
+  wget -q -O $VERSIONS_JSON $VERSIONS_JSON_URL
+  if [ $? != 0 ]; then
+    log E "Failed to get the version information."
+    exit 1
+  fi
+
+  local homepage=$(jq -r '.homepage' $VERSIONS_JSON)
+  if [ $homepage = null ]; then
+    local homepage=https://files.minecraftforge.net/maven/net/minecraftforge/forge/
+  fi
+  local homepage=$(echo $homepage | sed 's/http/https/g')
+  # Resolve version.
+  case $VERSION in
+    recommended)
+      FORGE_VERSION=$(jq -r '.promos["recommended"]' $VERSIONS_JSON)
+    ;;
+    latest)
+      FORGE_VERSION=$(jq -r '.promos["latest"]' $VERSIONS_JSON)
+    ;;
+    *)
+      local recommended=$(jq -r ".promos[\"$VERSION-recommended\"]" $VERSIONS_JSON)
+      local latest=$(jq -r ".promos[\"$VERSION-latest\"]" $VERSIONS_JSON)
+      if [ $recommended != null ]; then
+        FORGE_VERSION=$recommended
+      else
+        if [ $latest != null ]; then
+          FORGE_VERSION=$latest
+        fi
+      fi
+    ;;
+  esac
+  if [ "$FORGE_VERSION" = null ]; then
+    log E "The specified version of forge does not exist: \$VERSION=$SPECIFIED_VERSION"
+    exit 1
+  fi
+  local version=$VERSION-$FORGE_VERSION
+  if [ -e "$INSTALL_MARKER" ]; then
+    INSTALLED_VERSION=$(cat "$INSTALL_MARKER" | cut -d'=' -f2)
+    if [ "$INSTALLED_VERSION" = "$version" ]; then
+      log I "Version $version is already installed."
+      return
+    fi
+  fi
+  log I "Installing the forge server for '$version'."
+  case $VERSION in
+    *.*.*)
+      local norm=$VERSION ;;
+    *.*)
+      local norm=$VERSION.0 ;;
+  esac
+  local urls="
+    $homepage/$version/forge-$version-installer.jar
+    $homepage/$version-$norm/forge-$version-$norm-installer.jar
+    NOT_FOUND
+  "
+  for url in $urls
+  do
+      if [ $url == NOT_FOUND ]; then
+        log E "Unable to compute URL for $url"
+        exit 1
+      fi
+      log I "Downloading '$url' ..."
+      if wget -q -O $installer $url; then
+        break
+      fi
+  done
+  mkdir -p $SERVER_DIR/mods
+  java -jar $installer --installServer
+  for jar in $SERVER_DIR/forge-*.jar
+  do
+    case $jar in
+      *universal.jar)
+        mv $jar $SERVER_JAR
+        echo "forge=$version" > $INSTALL_MARKER
+        log I "Installation is completed."
+        return
+      ;;
+      *) ;;
+    esac
+  done
+  log E "Unable to derive server jar for Forge"
+  exit 1
 }
 
 #===============================================================================
@@ -160,9 +265,8 @@ function install()
   case "$SERVER_TYPE" in
     f|FORGE|forge)
       TYPE=forge
-      #install_forge
-      log E "Sorry, we do not yet support Forge installation."
-      exit 1
+      SERVER_JAR=$SERVER_DIR/minecraft_forge_server.$VERSION.jar
+      install_forge
     ;;
     v|VANILLA|vanilla)
       TYPE=vanilla
@@ -362,20 +466,22 @@ function main()
       --jvm-memory        ) JVM_MEMORY=${2}     ; shift 2 ;;
       --jvm-gc            ) JVM_GC=${2}         ; shift 2 ;;
       *)
-        log W "Unknown option: $1"
-        shift
+        if [ -n $1 ]; then
+          log W "Unknown option: $1"
+          shift
+        fi
       ;;
     esac
   done
   QUIET=${QUIET:-false}
-  SERVER_DIR=${SERVER_DIR:-$HOME/minecraft}
+  SERVER_DIR=${SERVER_DIR:-$HOME/server}
   SERVER_TYPE=${SERVER_TYPE:-vanilla}
   SERVER_VERSION=${SERVER_VERSION:-latest}
   JVM_OPTS=${JVM_OPTS:-auto}
   JVM_MEMORY=${JVM_MEMORY:-auto}
   JVM_GC=${JVM_GC:-auto}
 
-  SERVER_JAR=$SERVER_DIR/server.jar
+  SERVER_JAR=$SERVER_DIR/minecraft_server.$VERSION.jar
   SERVER_PROPERTIES=$SERVER_DIR/server.properties
   INSTALL_MARKER=$SERVER_DIR/.installed
   mkdir -p $SERVER_DIR
