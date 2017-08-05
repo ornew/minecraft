@@ -270,6 +270,7 @@ function install()
     ;;
     v|VANILLA|vanilla)
       TYPE=vanilla
+      SERVER_JAR=$SERVER_DIR/minecraft_server.$VERSION.jar
       install_vanilla
     ;;
     *)
@@ -481,7 +482,6 @@ function main()
   JVM_MEMORY=${JVM_MEMORY:-auto}
   JVM_GC=${JVM_GC:-auto}
 
-  SERVER_JAR=$SERVER_DIR/minecraft_server.$VERSION.jar
   SERVER_PROPERTIES=$SERVER_DIR/server.properties
   INSTALL_MARKER=$SERVER_DIR/.installed
   mkdir -p $SERVER_DIR
