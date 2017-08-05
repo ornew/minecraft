@@ -459,13 +459,13 @@ function main()
   for OPT in "$@"
   do
     case $OPT in
-      -q|--quiet          ) QUIET=true          ; shift 1 ;;
-      -d|--server-dir     ) SERVER_DIR=${2}     ; shift 2 ;;
-      -t|--server-type    ) SERVER_TYPE=${2}    ; shift 2 ;;
-      -v|--server-version ) SERVER_VERSION=${2} ; shift 2 ;;
-      --jvm-opts          ) JVM_OPTS=${2}       ; shift 2 ;;
-      --jvm-memory        ) JVM_MEMORY=${2}     ; shift 2 ;;
-      --jvm-gc            ) JVM_GC=${2}         ; shift 2 ;;
+      -q|--quiet             ) QUIET=true          ; shift 1 ;;
+      -d|--server-dir        ) SERVER_DIR=${2}     ; shift 2 ;;
+      -t|--server-type       ) SERVER_TYPE=${2}    ; shift 2 ;;
+      -v|--minecraft-version ) VERSION=${2}        ; shift 2 ;;
+      --jvm-opts             ) JVM_OPTS=${2}       ; shift 2 ;;
+      --jvm-memory           ) JVM_MEMORY=${2}     ; shift 2 ;;
+      --jvm-gc               ) JVM_GC=${2}         ; shift 2 ;;
       *)
         if [ -n $1 ]; then
           log W "Unknown option: $1"
@@ -477,7 +477,7 @@ function main()
   QUIET=${QUIET:-false}
   SERVER_DIR=${SERVER_DIR:-$HOME/server}
   SERVER_TYPE=${SERVER_TYPE:-vanilla}
-  SERVER_VERSION=${SERVER_VERSION:-latest}
+  VERSION=${VERSION:-latest}
   JVM_OPTS=${JVM_OPTS:-auto}
   JVM_MEMORY=${JVM_MEMORY:-auto}
   JVM_GC=${JVM_GC:-auto}
