@@ -2,8 +2,9 @@
 
 set -e
 
-function log() {
-  if [ -n "$QUIET" ]; then
+function log()
+{
+  if [ "$QUIET" == true ]; then
     return
   fi
   TAG=${TAG:-"ornew/minecraft"}
@@ -27,7 +28,8 @@ function log() {
 #   $EULA
 #   $SERVER_DIR
 #===============================================================================
-function check_eula() {
+function check_eula()
+{
   if [ ! -e "$SERVER_DIR/eula.txt" ]; then
     if [ "$EULA" != "" ]; then
       echo "# Generated via Docker on $(date)" > "$SERVER_DIR/eula.txt"
@@ -45,7 +47,7 @@ function check_eula() {
 }
 
 #===============================================================================
-# Checking Released Minecraft Vanilla Server Versions.
+# Resolve released Minecraft Vanilla Server Versions.
 #
 # (depend)
 #   log
@@ -57,7 +59,8 @@ function check_eula() {
 #   $VERSION          <- Resolved Minecraft Version
 #   $VERSION_INFO_URL
 #===============================================================================
-function check_vanilla_version() {
+function resolve_vanilla_version()
+{
   local VERSIONS_JSON=/tmp/vanilla-versions.json
   local VERSIONS_JSON_URL=https://launchermeta.mojang.com/mc/game/version_manifest.json
 
@@ -105,8 +108,9 @@ function check_vanilla_version() {
 # (Update)
 #   file "$SERVER_DIR/.installed"
 #===============================================================================
-function install_vanilla {
-  check_vanilla_version
+function install_vanilla
+{
+  resolve_vanilla_version
   if [ -e "$INSTALL_MARKER" ]; then
     INSTALLED_VERSION=$(cat "$INSTALL_MARKER")
     if [ "$INSTALLED_VERSION" = "$VERSION" ]; then
@@ -151,9 +155,9 @@ function install_vanilla {
 #   $WHITELIST
 #   $OPS
 #===============================================================================
-function install() {
-  TYPE=${TYPE:-vanilla}
-  case "$TYPE" in
+function install()
+{
+  case "$SERVER_TYPE" in
     f|FORGE|forge)
       TYPE=forge
       #install_forge
@@ -165,20 +169,61 @@ function install() {
       install_vanilla
     ;;
     *)
-      log E "Invalid type: \$TYPE -> '$TYPE'"
+      log E "Invalid type: \$SERVER_TYPE -> '$SERVER_TYPE'"
       log E "\$TYPE must be 'vanilla' or 'forge'."
       exit 1
     ;;
   esac
+  if [ ! -e $SERVER_PROPERTIES ]; then
+    log I "Creating default server.properties ..."
+    cat > $SERVER_PROPERTIES << EOF
+# Game
+gamemode=0
+force-gamemode=true
+pvp=true
+difficulty=1
+hardcore=false
 
-  if [ -n "$OPS" -a ! -e ops.txt.converted ]; then
-    log I "Setting ops"
-    log I $OPS | awk -v RS=, '{print}' >> ops.txt
-  fi
+# World
+level-name=world
+level-type=DEFAULT
+level-seed=
+max-world-size=29999984
+generator-settings=
+generate-structures=true
+max-build-height=256
+spawn-npcs=true
+spawn-monsters=true
+spawn-animals=true
 
-  if [ -n "$WHITELIST" -a ! -e white-list.txt.converted ]; then
-    log I "Setting whitelist"
-    echo $WHITELIST | awk -v RS=, '{print}' >> white-list.txt
+# Players
+allow-flight=false
+allow-nether=true
+player-idle-timeout=0
+
+# Ops
+op-permission-level=4
+enable-rcon=false
+enable-query=false
+enable-command-block=false
+
+# Connections
+prevent-proxy-connections=false
+network-compression-threshold=256
+snooper-enabled=true
+
+# Server
+server-ip=
+server-port=25565
+online-mode=true
+resource-pack=
+resource-pack-sha1=
+max-players=20
+max-tick-time=60000
+view-distance=10
+white-list=false
+motd=A Minecraft Server
+EOF
   fi
 }
 
@@ -189,36 +234,12 @@ function install() {
 #   $MEMINFO  <- Total memory size.
 #   $MEMLIMIT <- Limited memory size by cgroup.
 #===============================================================================
-function metric_alpine_docker() {
+function metric_alpine_docker()
+{
   local MEMINFO_KB=$(cat /proc/meminfo | grep MemTotal | awk '{print $2}')
   MEMINFO=$(expr $MEMINFO_KB \* 1024)
   MEMLIMIT=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes)
 }
-
-JVM_OPTS_FOR_OPTIMIZED="
-  -XX:+UnlockExperimentalVMOptions
-  -XX:+UseCGroupMemoryLimitForHeap
-  -XX:+DisableExplicitGC
-  -XX:+UseParNewGC
-  -XX:+UseNUMA
-  -XX:+CMSParallelRemarkEnabled
-  -XX:+UseAdaptiveGCBoundary
-  -XX:+UseBiasedLocking
-  -XX:+UseFastAccessorMethods
-  -XX:+UseCompressedOops
-  -XX:+OptimizeStringConcat
-  -XX:+AggressiveOpts
-  -XX:+UseCodeCacheFlushing
-  -XX:-UseGCOverheadLimit
-  -XX:MaxTenuringThreshold=15
-  -XX:MaxGCPauseMillis=30
-  -XX:GCPauseIntervalMillis=150
-  -XX:ReservedCodeCacheSize=2048m
-  -XX:SoftRefLRUPolicyMSPerMB=2000
-  -XX:ParallelGCThreads=10
-  -Dfml.ignorePatchDiscrepancies=true
-  -Dfml.ignoreInvalidMinecraftCertificates=true
-"
 
 #===============================================================================
 # Automatically configure JVM options.
@@ -238,7 +259,32 @@ JVM_OPTS_FOR_OPTIMIZED="
 #   $JVM_GC
 #   $JVM_OPTS
 #===============================================================================
-function autoconf_jvm() {
+function autoconf_jvm()
+{
+  JVM_OPTS_FOR_OPTIMIZED="
+    -XX:+UnlockExperimentalVMOptions
+    -XX:+UseCGroupMemoryLimitForHeap
+    -XX:+DisableExplicitGC
+    -XX:+UseParNewGC
+    -XX:+UseNUMA
+    -XX:+CMSParallelRemarkEnabled
+    -XX:+UseAdaptiveGCBoundary
+    -XX:+UseBiasedLocking
+    -XX:+UseFastAccessorMethods
+    -XX:+UseCompressedOops
+    -XX:+OptimizeStringConcat
+    -XX:+AggressiveOpts
+    -XX:+UseCodeCacheFlushing
+    -XX:-UseGCOverheadLimit
+    -XX:MaxTenuringThreshold=15
+    -XX:MaxGCPauseMillis=30
+    -XX:GCPauseIntervalMillis=150
+    -XX:ReservedCodeCacheSize=2048m
+    -XX:SoftRefLRUPolicyMSPerMB=2000
+    -XX:ParallelGCThreads=10
+    -Dfml.ignorePatchDiscrepancies=true
+    -Dfml.ignoreInvalidMinecraftCertificates=true
+  "
   log I "Automatically configuration JVM options ..."
   metric_alpine_docker
   local MEMINFO_MB=$(expr $MEMINFO / 1024 / 1024)
@@ -260,12 +306,13 @@ function autoconf_jvm() {
   log I "Recommended initialization and maximum heap memory size: ${JVM_RECOMMEND_MEMORY_SIZE}B"
   log I "Recommended GC type: ${JVM_RECOMMEND_GC_TYPE}"
   JVM_MEMORY=${JVM_MEMORY:-$JVM_RECOMMEND_MEMORY_SIZE}
+  if [ "$JVM_MEMORY" = auto ]; then JVM_MEMORY=$JVM_RECOMMEND_MEMORY_SIZE; fi
   local JVM_INIT_MEMORY=${JVM_INIT_MEMORY:-$JVM_MEMORY}
   local JVM_MAX_MEMORY=${JVM_MAX_MEMORY:-$JVM_MEMORY}
   case "X$JVM_GC" in
-    X               ) JVM_GC=$JVM_RECOMMEND_GC_TYPE ;;
-    XG1GC           ) JVM_GC=G1GC ;;
-    XConcMarkSweepGC) JVM_GC=ConcMarkSweepGC ;;
+    X | Xauto        ) JVM_GC=$JVM_RECOMMEND_GC_TYPE ;;
+    XG1GC            ) JVM_GC=G1GC                   ;;
+    XConcMarkSweepGC ) JVM_GC=ConcMarkSweepGC        ;;
     X*)
       log E "Unknown JVM GC type: \$JVM_GC=$JVM_GC"
       exit 1
@@ -291,34 +338,53 @@ function autoconf_jvm() {
 #   $SERVER_JAR
 #   $INSTALL_MARKER
 #===============================================================================
-function start() {
-  JVM_OPTS=${JVM_OPTS:-auto}
+function start()
+{
   if [ "$JVM_OPTS" = auto ]; then
     autoconf_jvm
   fi
   log I "JVM options: $JVM_OPTS"
   log I "Starting server..."
 
-  if [ -f "$SERVER_DIR/bootstrap.txt" ]; then
-    exec java $JVM_OPTS -jar $SERVER_JAR "$@" nogui < /data/bootstrap.txt
-  else
-    exec java $JVM_OPTS -jar $SERVER_JAR "$@" nogui
-  fi
+  exec java $JVM_OPTS -jar $SERVER_JAR "$@" nogui
 }
 
+function main()
+{
+  for OPT in "$@"
+  do
+    case $OPT in
+      -q                  ) QUIET=true          ; shift 1 ;;
+      -d|--server-dir     ) SERVER_DIR=${2}     ; shift 2 ;;
+      -t|--server-type    ) SERVER_TYPE=${2}    ; shift 2 ;;
+      -v|--server-version ) SERVER_VERSION=${2} ; shift 2 ;;
+      --jvm-opts          ) JVM_OPTS=${2}       ; shift 2 ;;
+      --jvm-memory        ) JVM_MEMORY=${2}     ; shift 2 ;;
+      --jvm-gc            ) JVM_GC=${2}         ; shift 2 ;;
+      *)
+        log W "Unknown option: $1"
+        shift
+      ;;
+    esac
+  done
+  QUIET=${QUIET:-false}
+  SERVER_DIR=${SERVER_DIR:-$HOME/minecraft}
+  SERVER_TYPE=${SERVER_TYPE:-vanilla}
+  SERVER_VERSION=${SERVER_VERSION:-latest}
+  JVM_OPTS=${JVM_OPTS:-auto}
+  JVM_MEMORY=${JVM_MEMORY:-auto}
+  JVM_GC=${JVM_GC:-auto}
 
-# .....main......
+  SERVER_JAR=$SERVER_DIR/server.jar
+  SERVER_PROPERTIES=$SERVER_DIR/server.properties
+  INSTALL_MARKER=$SERVER_DIR/.installed
+  mkdir -p $SERVER_DIR
 
-SERVER_DIR=${SERVER_DIR:-$HOME/server}
-SERVER_JAR=$SERVER_DIR/server.jar
-INSTALL_MARKER=$SERVER_DIR/.installed
-mkdir -p $SERVER_DIR
+  cd $SERVER_DIR
+  log I "Server directory is '$SERVER_DIR'."
 
-cd $SERVER_DIR
-log I "Server directory is '$SERVER_DIR'."
+  check_eula && install && start
+}
 
-check_eula
-
-install
-start
+main $@
 
