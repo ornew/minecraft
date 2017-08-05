@@ -177,7 +177,7 @@ function install_forge() {
   fi
   local homepage=$(echo $homepage | sed 's/http/https/g')
   # Resolve version.
-  case $VERSION in
+  case $FORGE_VERSION in
     recommended)
       FORGE_VERSION=$(jq -r '.promos["recommended"]' $VERSIONS_JSON)
     ;;
@@ -467,7 +467,7 @@ function main()
       --jvm-memory           ) JVM_MEMORY=${2}     ; shift 2 ;;
       --jvm-gc               ) JVM_GC=${2}         ; shift 2 ;;
       *)
-        if [ -n $1 ]; then
+        if [ -n "$1" ]; then
           log W "Unknown option: $1"
           shift
         fi
