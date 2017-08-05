@@ -354,7 +354,7 @@ function main()
   for OPT in "$@"
   do
     case $OPT in
-      -q                  ) QUIET=true          ; shift 1 ;;
+      -q|--quiet          ) QUIET=true          ; shift 1 ;;
       -d|--server-dir     ) SERVER_DIR=${2}     ; shift 2 ;;
       -t|--server-type    ) SERVER_TYPE=${2}    ; shift 2 ;;
       -v|--server-version ) SERVER_VERSION=${2} ; shift 2 ;;
