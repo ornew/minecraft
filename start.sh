@@ -179,10 +179,10 @@ function install_forge() {
   # Resolve version.
   case $FORGE_VERSION in
     recommended)
-      FORGE_VERSION=$(jq -r '.promos["recommended"]' $VERSIONS_JSON)
+      FORGE_VERSION=$(jq -r ".promos[\"$VERSION-recommended\"]" $VERSIONS_JSON)
     ;;
     latest)
-      FORGE_VERSION=$(jq -r '.promos["latest"]' $VERSIONS_JSON)
+      FORGE_VERSION=$(jq -r ".promos[\"$VERSION-latest\"]" $VERSIONS_JSON)
     ;;
     *)
       local recommended=$(jq -r ".promos[\"$VERSION-recommended\"]" $VERSIONS_JSON)
