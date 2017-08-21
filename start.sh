@@ -176,6 +176,7 @@ function install_forge() {
     local homepage=https://files.minecraftforge.net/maven/net/minecraftforge/forge/
   fi
   local homepage=$(echo $homepage | sed 's/http/https/g')
+  local homepage=${homepage%/}
   # Resolve version.
   case $FORGE_VERSION in
     recommended)
